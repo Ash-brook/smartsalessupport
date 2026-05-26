@@ -125,6 +125,23 @@ h1, h2, h3, h4 { margin: 0; }
 /* --- Toast --- */
 .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #1f2733; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 14px; box-shadow: var(--shadow); }
 
+/* --- Intake (drag & drop) --- */
+.intake { padding: 24px; overflow-y: auto; height: 100%; max-width: 1000px; }
+.intake h2 { margin-bottom: 8px; }
+.intake > p.muted { margin: 0 0 18px; max-width: 720px; line-height: 1.5; }
+.intake code { background: #eef1f6; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+.dropzone {
+  border: 2px dashed var(--border); border-radius: 14px; background: var(--panel);
+  padding: 48px 24px; text-align: center; cursor: pointer; transition: all 0.15s;
+}
+.dropzone:hover { border-color: var(--brand); background: #f7f9fc; }
+.dropzone.dragging { border-color: var(--brand); background: #eaf1ff; transform: scale(1.01); }
+.dropzone.busy { opacity: 0.6; pointer-events: none; }
+.dropzone-icon { font-size: 40px; margin-bottom: 8px; }
+.dropzone p { margin: 0; color: var(--muted); line-height: 1.5; }
+.intake-error { color: var(--red); margin-top: 14px; }
+.intake-results { margin-top: 20px; }
+
 /* --- Dashboard --- */
 .dashboard { padding: 24px; overflow-y: auto; height: 100%; }
 .dashboard h2 { margin-bottom: 18px; }

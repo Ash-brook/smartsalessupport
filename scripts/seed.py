@@ -151,70 +151,43 @@ def _allocate_counts(total: int) -> dict[IntentLabel, int]:
     return counts
 
 
-def seed(n_customers: int, orders_per_customer: int, n_emails: int) -> None:
+def seed(n_customers: int, orders_per_customer: int, n_emails: int, append: bool = False) -> None:
     fake = Faker()
-    Faker.seed(42)
-    random.seed(42)
+    if not append:
+        # Deterministic data for a clean, reproducible demo. In append mode we want fresh
+        # variety each run, so we leave the RNG unseeded.
+        Faker.seed(42)
+        random.seed(42)
 
     session = SessionLocal()
     try:
-        # Wipe existing data so re-seeding is clean (child tables first for FK safety).
-        for model in (AuditEvent, Draft, SimulatedEmail, Order, Customer):
-            session.query(model).delete()
-        session.commit()
+        if not append:
+            # Wipe existing data so re-seeding is clean (child tables first for FK safety).
+            for model in (AuditEvent, Draft, SimulatedEmail, Order, Customer):
+                session.query(model).delete()
+            session.commit()
 
-        # --- Customers ---
-        customers: list[Customer] = []
-        for _ in range(n_customers):
-            customers.append(
-                Customer(
-                    name=fake.name(),
-                    email=fake.email(),
-                    account_tier=random.choices(list(AccountTier), weights=[0.6, 0.3, 0.1])[0],
-                    registration_date=fake.date_time_between(start_date="-2y", end_date="-1d"),
-                    country=fake.country(),
-                    open_tickets_count=random.randint(0, 4),
-                    lifetime_value_usd=round(random.uniform(0, 5000), 2),
-                )
-            )
-        session.add_all(customers)
-        session.flush()  # assign customer_ids
+        # Reuse existing customers in append mode; otherwise create a fresh set.
+        existing = session.query(Customer).all() if append else []
+        if existing:
+            customers = existing
+            orders_by_customer = {
+                c.customer_id: session.query(Order).filter_by(customer_id=c.customer_id).all()
+                for c in customers
+            }
+        else:
+            customers = _make_customers(session, fake, n_customers)
+            orders_by_customer = _make_orders(session, fake, customers, orders_per_customer)
 
-        # --- Orders ---
-        orders_by_customer: dict[str, list[Order]] = {}
-        for customer in customers:
-            cust_orders = []
-            for _ in range(orders_per_customer):
-                order_date = fake.date_time_between(start_date="-6M", end_date="-1d")
-                status = random.choice(list(OrderStatus))
-                order = Order(
-                    customer_id=customer.customer_id,
-                    product_name=random.choice(PRODUCTS),
-                    sku=fake.bothify("SKU-####-??").upper(),
-                    status=status,
-                    order_date=order_date,
-                    estimated_delivery_date=order_date + timedelta(days=random.randint(2, 10)),
-                    tracking_number=fake.bothify("1Z###??####").upper(),
-                    amount_usd=round(random.uniform(20, 600), 2),
-                    payment_status=(
-                        PaymentStatus.REFUNDED
-                        if status == OrderStatus.REFUNDED
-                        else random.choice(
-                            [PaymentStatus.PAID, PaymentStatus.PAID, PaymentStatus.PENDING]
-                        )
-                    ),
-                )
-                cust_orders.append(order)
-            orders_by_customer[customer.customer_id] = cust_orders
-            session.add_all(cust_orders)
-        session.flush()
+        # Synthetic emails reference a customer that actually has orders to talk about.
+        customers_with_orders = [c for c in customers if orders_by_customer.get(c.customer_id)]
 
         # --- Emails (per intent distribution) ---
         counts = _allocate_counts(n_emails)
         emails: list[SimulatedEmail] = []
         for intent, count in counts.items():
             for _ in range(count):
-                customer = random.choice(customers)
+                customer = random.choice(customers_with_orders)
                 order = random.choice(orders_by_customer[customer.customer_id])
                 subject_tpl, body_tpl = random.choice(TEMPLATES[intent])
                 fields = {
@@ -242,10 +215,10 @@ def seed(n_customers: int, orders_per_customer: int, n_emails: int) -> None:
         session.commit()
 
         # --- Summary ---
+        verb = "Appended" if append else "Seeded"
         print(
-            f"Seeded: {len(customers)} customers, "
-            f"{sum(len(o) for o in orders_by_customer.values())} orders, "
-            f"{len(emails)} emails"
+            f"{verb}: {len(emails)} new unprocessed emails "
+            f"(across {len(customers_with_orders)} customers)"
         )
         print("Email intent breakdown:")
         for intent, count in counts.items():
@@ -255,11 +228,65 @@ def seed(n_customers: int, orders_per_customer: int, n_emails: int) -> None:
         session.close()
 
 
+def _make_customers(session, fake, n_customers: int) -> list[Customer]:
+    customers = [
+        Customer(
+            name=fake.name(),
+            email=fake.email(),
+            account_tier=random.choices(list(AccountTier), weights=[0.6, 0.3, 0.1])[0],
+            registration_date=fake.date_time_between(start_date="-2y", end_date="-1d"),
+            country=fake.country(),
+            open_tickets_count=random.randint(0, 4),
+            lifetime_value_usd=round(random.uniform(0, 5000), 2),
+        )
+        for _ in range(n_customers)
+    ]
+    session.add_all(customers)
+    session.flush()  # assign customer_ids
+    return customers
+
+
+def _make_orders(session, fake, customers, orders_per_customer: int) -> dict[str, list[Order]]:
+    orders_by_customer: dict[str, list[Order]] = {}
+    for customer in customers:
+        cust_orders = []
+        for _ in range(orders_per_customer):
+            order_date = fake.date_time_between(start_date="-6M", end_date="-1d")
+            status = random.choice(list(OrderStatus))
+            order = Order(
+                customer_id=customer.customer_id,
+                product_name=random.choice(PRODUCTS),
+                sku=fake.bothify("SKU-####-??").upper(),
+                status=status,
+                order_date=order_date,
+                estimated_delivery_date=order_date + timedelta(days=random.randint(2, 10)),
+                tracking_number=fake.bothify("1Z###??####").upper(),
+                amount_usd=round(random.uniform(20, 600), 2),
+                payment_status=(
+                    PaymentStatus.REFUNDED
+                    if status == OrderStatus.REFUNDED
+                    else random.choice(
+                        [PaymentStatus.PAID, PaymentStatus.PAID, PaymentStatus.PENDING]
+                    )
+                ),
+            )
+            cust_orders.append(order)
+        orders_by_customer[customer.customer_id] = cust_orders
+        session.add_all(cust_orders)
+    session.flush()
+    return orders_by_customer
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seed SmartSupport synthetic data.")
     parser.add_argument("--customers", type=int, default=50)
     parser.add_argument("--orders-per-customer", type=int, default=3)
     parser.add_argument("--emails", type=int, default=200)
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="add new unprocessed emails without wiping existing data (accumulating inbox)",
+    )
     args = parser.parse_args()
 
     # Make sure tables exist even if migrations haven't been run yet.
@@ -268,7 +295,7 @@ def main() -> None:
 
     Base.metadata.create_all(engine)
 
-    seed(args.customers, args.orders_per_customer, args.emails)
+    seed(args.customers, args.orders_per_customer, args.emails, append=args.append)
 
 
 if __name__ == "__main__":

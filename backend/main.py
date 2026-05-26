@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.drafts import router as drafts_router
+from backend.api.intake import router as intake_router
 from backend.api.routes import router
 from backend.config import settings
 
@@ -27,6 +28,7 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(drafts_router)
+app.include_router(intake_router)
 
 
 @app.get("/health")

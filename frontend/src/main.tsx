@@ -4,6 +4,7 @@ import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import App from './App.tsx'
 import './index.css'
 import Dashboard from './pages/Dashboard.tsx'
+import Intake from './pages/Intake.tsx'
 import Review from './pages/Review.tsx'
 
 const router = createBrowserRouter([
@@ -12,6 +13,7 @@ const router = createBrowserRouter([
     element: <App />,
     children: [
       { index: true, element: <Navigate to="/review" replace /> },
+      { path: 'intake', element: <Intake /> },
       { path: 'review', element: <Review /> },
       { path: 'dashboard', element: <Dashboard /> },
     ],

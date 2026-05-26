@@ -8,6 +8,9 @@ function App() {
           <span className="brand-mark">◆</span> SmartSupport
         </div>
         <nav className="nav">
+          <NavLink to="/intake" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Mail Intake
+          </NavLink>
           <NavLink to="/review" className={({ isActive }) => (isActive ? 'active' : '')}>
             Agent Review
           </NavLink>

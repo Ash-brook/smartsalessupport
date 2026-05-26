@@ -146,8 +146,9 @@ class SimulatedEmail(Base):
     subject: Mapped[str] = mapped_column(String, nullable=False)
     body_text: Mapped[str] = mapped_column(Text, nullable=False)
     received_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    # Ground-truth label used by the eval harness; the classifier predicts this independently.
-    intent_label: Mapped[IntentLabel] = mapped_column(_enum(IntentLabel), nullable=False)
+    # Ground-truth label for seeded emails (used by the eval harness). Null for real
+    # complaints ingested via /intake, which have no known-correct label.
+    intent_label: Mapped[IntentLabel | None] = mapped_column(_enum(IntentLabel), nullable=True)
     status: Mapped[EmailStatus] = mapped_column(
         _enum(EmailStatus), default=EmailStatus.UNPROCESSED, nullable=False
     )

@@ -106,6 +106,11 @@ auto-approved:
    card) and set `GEMINI_API_KEY`, then set `MOCK_LLM=false`.
 4. Frontend (first time): `cd frontend && npm install`
 
+> **Free-tier quota note:** the Gemini free tier limits requests per day, and the limit varies
+> by model. If you hit `429 RESOURCE_EXHAUSTED`, either wait for the daily reset (midnight
+> Pacific) or switch to a higher-allowance model by changing `GEMINI_MODEL` in `.env` — e.g.
+> `gemini-2.5-flash-lite` (~1,000/day) or `gemini-2.0-flash` (~1,500/day). It's a one-line change.
+
 ## Running it
 
 | Command | What it does |
@@ -118,6 +123,13 @@ auto-approved:
 **Typical demo:** `seed.bat` → `run-pipeline.bat` → start `run-backend.bat` and
 `run-frontend.bat` in two terminals → open http://localhost:5173. Review drafts on the
 **Agent Review** tab; watch KPIs on the **Dashboard** tab.
+
+**Mail Intake (live feed):** on the **Mail Intake** tab, drag-and-drop real complaint files —
+Outlook `.msg`, Gmail `.eml`, PDFs, or images/screenshots. The system reads each one (text files
+locally; images & scanned PDFs via Gemini vision), files it as an inbox email, and runs it
+through the pipeline so its AI draft appears in the review queue. Agents can only review — issues
+enter the system as files, never by typing. `seed.bat --append` adds synthetic unprocessed emails
+without wiping existing history (an accumulating inbox).
 
 ## Tests & evaluation
 

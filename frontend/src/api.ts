@@ -124,4 +124,25 @@ export const api = {
     ),
 
   metrics: () => http<Metrics>('/api/v1/metrics'),
+
+  intake: async (files: File[]): Promise<IntakeResult[]> => {
+    const form = new FormData()
+    files.forEach((f) => form.append('files', f))
+    // No Content-Type header here: the browser sets the multipart boundary itself.
+    const res = await fetch('/api/v1/intake', { method: 'POST', body: form })
+    if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+    return (await res.json()).results as IntakeResult[]
+  },
+}
+
+export interface IntakeResult {
+  filename: string
+  source: string
+  ok: boolean
+  customer_name: string | null
+  intent: string | null
+  confidence: number | null
+  outcome: string | null
+  draft_id: string | null
+  error: string | null
 }

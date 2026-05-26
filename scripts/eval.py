@@ -32,11 +32,17 @@ def main() -> None:
     client = LLMClient()
     session = SessionLocal()
     try:
-        query = session.query(SimulatedEmail).order_by(SimulatedEmail.received_at)
+        # Only seeded emails have a ground-truth label; ingested complaints (intent_label
+        # is NULL) can't be scored, so exclude them.
+        query = (
+            session.query(SimulatedEmail)
+            .filter(SimulatedEmail.intent_label.is_not(None))
+            .order_by(SimulatedEmail.received_at)
+        )
         emails = query.limit(args.limit).all() if args.limit else query.all()
 
         if not emails:
-            print("No emails found. Run seed.py first.")
+            print("No labelled emails found. Run seed.py first.")
             return
 
         correct = 0

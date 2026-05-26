@@ -193,3 +193,22 @@ class MetricsResponse(BaseModel):
     category_breakdown: list[CategoryRow]
     audit_log: list[AuditLogRow]
     top_rejection_reasons: list[ReasonRow]
+
+
+# --- POST /intake (drag-and-drop mail feed) -------------------------------
+
+
+class IntakeResultItem(BaseModel):
+    filename: str
+    source: str  # how it was read: eml | msg | pdf | vision | text | error
+    ok: bool
+    customer_name: str | None = None
+    intent: str | None = None
+    confidence: float | None = None
+    outcome: str | None = None  # auto | hitl
+    draft_id: str | None = None
+    error: str | None = None
+
+
+class IntakeResponse(BaseModel):
+    results: list[IntakeResultItem]

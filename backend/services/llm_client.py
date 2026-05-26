@@ -194,6 +194,52 @@ class LLMClient:
             "flags": list(data.get("flags", [])),
         }
 
+    # --- Vision (intake of images / scanned PDFs) --------------------------
+
+    def extract_complaint(self, data: bytes, mime_type: str) -> dict[str, Any]:
+        """Read a complaint from an image or scanned PDF.
+
+        Returns {sender_email, subject, body}. Needs live Gemini; in mock mode it returns a
+        placeholder so offline runs and tests don't crash.
+        """
+        if self.mock:
+            return {
+                "sender_email": None,
+                "subject": "Scanned complaint (mock mode)",
+                "body": "[mock] Reading images/scans needs live Gemini — set MOCK_LLM=false.",
+            }
+        return self._gemini_vision_extract(data, mime_type)
+
+    def _gemini_vision_extract(self, data: bytes, mime_type: str) -> dict[str, Any]:
+        from google.genai import types
+
+        system = (
+            "You are reading an image or scanned document of a customer support complaint "
+            "or email. Extract the sender's email address if visible (else null), a short "
+            "subject line, and the full complaint text. Respond ONLY as JSON with keys "
+            '"sender_email", "subject", and "body".'
+        )
+        config_kwargs: dict[str, Any] = dict(
+            system_instruction=system,
+            temperature=0.1,
+            max_output_tokens=1024,
+            response_mime_type="application/json",
+        )
+        if "2.5" in self.model and "pro" not in self.model.lower():
+            config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+        part = types.Part.from_bytes(data=data, mime_type=mime_type)
+        resp = self._client().models.generate_content(
+            model=self.model,
+            contents=[part],
+            config=types.GenerateContentConfig(**config_kwargs),
+        )
+        parsed = _parse_json(resp)
+        return {
+            "sender_email": parsed.get("sender_email"),
+            "subject": parsed.get("subject") or "Customer complaint",
+            "body": parsed.get("body") or "",
+        }
+
 
 def _parse_json(resp: Any) -> dict[str, Any]:
     """Pull the JSON object out of a Gemini response, with a clear error if it's empty.
