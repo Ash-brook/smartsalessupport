@@ -1,0 +1,27 @@
+# Pre-commit hooks (PRD section 11 — Security & Code Quality).
+# Activate after `git init` with:  pre-commit install
+# Until then, .gitignore already keeps .env out of any commit.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key      # block committing private keys
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-added-large-files
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff                    # lint
+        args: [--fix]
+      - id: ruff-format             # format
+
+  - repo: local
+    hooks:
+      # Hard stop: never let a file literally named .env be committed.
+      - id: block-dotenv
+        name: block committing .env
+        entry: bash -c 'echo "Refusing to commit .env (secrets)."; exit 1'
+        language: system
+        files: '^\.env$'

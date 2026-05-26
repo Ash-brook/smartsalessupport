@@ -1,0 +1,26 @@
+# One-command startup:  docker compose up --build
+# Backend on http://localhost:8000, UI on http://localhost:5173.
+# Defaults to mock LLM mode (no key needed). To use real Gemini, set GEMINI_API_KEY and
+# MOCK_LLM=false in the backend environment below (or via a .env file docker reads).
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - MOCK_LLM=true
+      # - GEMINI_API_KEY=your-key-here
+      # - MOCK_LLM=false
+    volumes:
+      - ./data:/app/data   # persist the SQLite file across restarts
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      # Inside the compose network the backend is reachable by its service name.
+      - VITE_PROXY_TARGET=http://backend:8000
+    depends_on:
+      - backend
